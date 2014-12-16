@@ -381,11 +381,5 @@ namespace Shortcut_Copy_Tool.ViewModel
                 }
             }
         }
-        ////public override void Cleanup()
-        ////{
-        ////    // Clean up if needed
-
-        ////    base.Cleanup();
-        ////}
     }
 }
