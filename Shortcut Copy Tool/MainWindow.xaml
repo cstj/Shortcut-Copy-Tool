@@ -1,0 +1,57 @@
+﻿<Window x:Class="Shortcut_Copy_Tool.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:ignore="http://www.ignore.com"
+        mc:Ignorable="d ignore"
+        Height="324"
+        Width="513"
+        Title="Shortcut / File Copy Tool"
+        DataContext="{Binding Main, Source={StaticResource Locator}}" Icon="folder_starred.png">
+    <Window.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceDictionary Source="Skins/MainSkin.xaml" />
+            </ResourceDictionary.MergedDictionaries>
+        </ResourceDictionary>
+    </Window.Resources>
+
+    <Grid x:Name="LayoutRoot">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="7*"/>
+            <RowDefinition Height="28"/>
+            <RowDefinition Height="28"/>
+            <RowDefinition Height="137*"/>
+            <RowDefinition Height="28"/>
+            <RowDefinition Height="28"/>
+            <RowDefinition Height="39*"/>
+        </Grid.RowDefinitions>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="128"/>
+            <ColumnDefinition/>
+            <ColumnDefinition Width="54"/>
+        </Grid.ColumnDefinitions>
+
+        <TextBlock FontSize="36"
+                   FontWeight="Bold"
+                   Foreground="Purple"
+                   Text="{Binding WelcomeTitle}"
+                   VerticalAlignment="Center"
+                   HorizontalAlignment="Center"
+                   TextWrapping="Wrap" Grid.Column="1" Margin="148,49,175,40" Height="48" Width="0" Grid.Row="3" />
+        <Label Content="Directory with links:" Grid.Row="1" Margin="10,0,0,0"/>
+        <Button Content="..." Grid.Column="2" Grid.Row="1" Command="{Binding BrowseSourceCommand, Mode=OneWay}" Margin="5,5,10,0"/>
+        <Button Content="(Re)Scan" Margin="10,5,10,0" Grid.Row="2" Grid.ColumnSpan="3" Command="{Binding ScanCommand, Mode=OneWay}" IsEnabled="{Binding ScanEnabled}"/>
+        <ListBox Margin="10,5,10,0" Grid.Row="3" Grid.ColumnSpan="3" ItemsSource="{Binding FilesList}">
+        </ListBox>
+        <Label Content="Copy To:" Grid.Row="5" Margin="10,0,0,0"/>
+        <TextBox Grid.Column="1" TextWrapping="Wrap" Text="{Binding FolderDestination}" Grid.Row="5" Margin="0,5,0,0" IsEnabled="False"/>
+        <Button Content="..." Grid.Column="2" Grid.Row="5" Command="{Binding BrowseDestinationCommand, Mode=OneWay}" Margin="5,5,10,0"/>
+        <Label Content="Files Count:" Grid.Column="1" Margin="0,0,41,0" Grid.Row="4" HorizontalAlignment="Right" Width="91" HorizontalContentAlignment="Right"/>
+        <TextBox Grid.Column="1" TextWrapping="Wrap" Text="{Binding FilesCount}" Grid.Row="4" Margin="0,5,10,0" IsEnabled="False" Grid.ColumnSpan="2" HorizontalAlignment="Right" Width="85"/>
+        <TextBox Grid.Column="1" TextWrapping="Wrap" Text="{Binding FolderSource}" Grid.Row="1" Margin="0,5,0,0"/>
+        <Button Content="Copy To Destination" HorizontalAlignment="Left" Margin="10,5,0,0" Grid.Row="6" VerticalAlignment="Top" Width="485" Grid.ColumnSpan="3" IsEnabled="{Binding CopyEnabled}" Command="{Binding CopyCommand, Mode=OneWay}"/>
+
+    </Grid>
+</Window>
