@@ -10,6 +10,13 @@ using System.Collections.Concurrent;
 
 namespace Shortcut_Copy_Tool.ViewModel
 {
+    public class FilesForCopy
+    {
+        public string phyPath { get; set; }
+        public string tree { get; set; }
+        public string display { get; set; }
+    }
+
     /// <summary>
     /// This class contains properties that the main View can data bind to.
     /// <para>
@@ -19,6 +26,19 @@ namespace Shortcut_Copy_Tool.ViewModel
     public class MainViewModel : ViewModelBase
     {
         #region Attributes
+        public const string IncDirTreeName = "IncDirTree";
+        private bool _IncDirTree = false;
+        public bool IncDirTree
+        {
+            get { return _IncDirTree; }
+            set
+            {
+                if (_IncDirTree = value) return;
+                _IncDirTree = value;
+                RaisePropertyChanged(IncDirTreeName);
+            }
+        }
+        
         public const string FolderSourceName = "FolderSource";
         private string _FolderSource = string.Empty;
         public string FolderSource
@@ -72,8 +92,8 @@ namespace Shortcut_Copy_Tool.ViewModel
         }
 
         public const string FilesListName = "FilesList";
-        private ConcurrentBag<string> _FilesList = new ConcurrentBag<string>();
-        public ConcurrentBag<string> FilesList
+        private ConcurrentBag<FilesForCopy> _FilesList = new ConcurrentBag<FilesForCopy>();
+        public ConcurrentBag<FilesForCopy> FilesList
         {
             get { return _FilesList; }
             set
@@ -115,11 +135,13 @@ namespace Shortcut_Copy_Tool.ViewModel
             ScanEnabled = false;
             if (Properties.Settings.Default.SourceDirectory != string.Empty) FolderSource = Properties.Settings.Default.SourceDirectory;
             if (Properties.Settings.Default.CopyDirectory != string.Empty) FolderDestination = Properties.Settings.Default.CopyDirectory;
+            IncDirTree = Properties.Settings.Default.IncDirTree;
 
         }
 
-        void MainViewModel_PropertyChanged(object sender, System.ComponentModel.PropertyChangedEventArgs e)
+        public void MainViewModel_PropertyChanged(object sender, System.ComponentModel.PropertyChangedEventArgs e)
         {
+            //Check for changed properties
             switch (e.PropertyName)
             {
                 case FolderSourceName:
@@ -139,13 +161,22 @@ namespace Shortcut_Copy_Tool.ViewModel
                     break;
                 
                 case FilesListName:
+                    //Has the files list changed
                     FilesCount = FilesList.Count;
                     if (Directory.Exists(FolderDestination) && FilesCount > 0 && FolderDestination != FolderSource) CopyEnabled = true;
                     else CopyEnabled = false;
                     break;
+
+                case IncDirTreeName:
+                    Properties.Settings.Default.IncDirTree = IncDirTree;
+                    Properties.Settings.Default.Save();
+                    break;
             }
         }
 
+        /// <summary>
+        /// Check if the destination folder exists
+        /// </summary>
         public void CheckDestFolder()
         {
             bool testEnable = false;
@@ -155,6 +186,7 @@ namespace Shortcut_Copy_Tool.ViewModel
             }
             else
             {
+                //We dont have a folder that exists, should we create it?
                 using (Ookii.Dialogs.Wpf.TaskDialog td = new Ookii.Dialogs.Wpf.TaskDialog())
                 {
                     td.WindowTitle = "Folder Does not Exist";
@@ -219,6 +251,11 @@ namespace Shortcut_Copy_Tool.ViewModel
             }
         }
 
+        /// <summary>
+        /// Do the copies, 
+        /// </summary>
+        /// <param name="sender"></param>
+        /// <param name="e"></param>
         private void progress_DoWork(object sender, System.ComponentModel.DoWorkEventArgs e)
         {
             CopyEnabled = false;
@@ -228,27 +265,42 @@ namespace Shortcut_Copy_Tool.ViewModel
             int percent = 0;
             string outname;
             string dest = FolderDestination + System.IO.Path.DirectorySeparatorChar;
-            foreach (string f in FilesList)
+            string finalDest = string.Empty;
+            //Go through files in list and copy them
+            foreach (FilesForCopy f in FilesList)
             {
                 if (progress.CancellationPending) break;
-
+                //Update Progress Bar
                 percent = (int)System.Math.Round((((double)count / (double)FilesList.Count) * 100));
-                progress.ReportProgress(percent, null, f.Replace(FolderSource, ""));
+                progress.ReportProgress(percent, null, f.phyPath.Replace(FolderSource, ""));
 
-                if (File.Exists(dest + Path.GetFileName(f)))
+                //Are we including the directory tree
+                if (IncDirTree)
+                {
+                    //Create path
+                    string dirPath = Path.Combine(dest, f.tree);
+                    //Check path exists
+                    if (!Directory.Exists(dirPath)) Directory.CreateDirectory(dirPath);
+                    finalDest = Path.Combine(dirPath, Path.GetFileName(f.phyPath));
+                }
+                else finalDest = dest;
+
+                //If the destination exists then inc counter to append to the name so as to not overwrite
+                if (File.Exists(finalDest + Path.GetFileName(f.phyPath)))
                 {
                     fileCounter = 0;
                     fail = true;
                     while (fail)
                     {
-                        if (!File.Exists(dest + Path.GetFileNameWithoutExtension(f) + fileCounter + Path.GetExtension(f))) break;
+                        if (!File.Exists(finalDest + Path.GetFileNameWithoutExtension(f.phyPath) + fileCounter + Path.GetExtension(f.phyPath))) break;
                         fileCounter++;
                     }
-                    outname = dest + Path.GetFileNameWithoutExtension(f) + fileCounter + Path.GetExtension(f);
+                    //Save the new output name
+                    outname = finalDest + Path.GetFileNameWithoutExtension(f.phyPath) + fileCounter + Path.GetExtension(f.phyPath);
                 }
-                else outname = dest + Path.GetFileName(f);
-                //File.Copy(f, outname, true);
-                CopyFile(f, outname, true);
+                else outname = finalDest + Path.GetFileName(f.phyPath);  //If the destination does not exists then fire away!
+                //Copy the File
+                CopyFile(f.phyPath, outname, true);
                 count++;
             }
             CopyEnabled = true;
@@ -256,21 +308,21 @@ namespace Shortcut_Copy_Tool.ViewModel
         #endregion
 
         #region Scan Command
-        private ConcurrentBag<string> tmpFiles;
+        private ConcurrentBag<FilesForCopy> tmpFiles;
         public RelayCommand ScanCommand { get; private set; }
         public void ScanExecute()
         {
             //Get source files
             if (Directory.Exists(FolderSource))
             {
-                tmpFiles = new ConcurrentBag<string>();
+                tmpFiles = new ConcurrentBag<FilesForCopy>();
                 size = 0;
-                ScanPath(FolderSource, tmpFiles);
+                ScanPath(FolderSource, FolderSource, tmpFiles);
                 FilesList = tmpFiles;
             }
         }
 
-        private void ScanPath(string path, ConcurrentBag<string> fileList)
+        private void ScanPath(string path, string lnkPath, ConcurrentBag<FilesForCopy> fileList)
         {
             //file or folder
             try
@@ -280,14 +332,17 @@ namespace Shortcut_Copy_Tool.ViewModel
                 if ((attr & FileAttributes.Directory) == FileAttributes.Directory)
                 {
                     //Directory - scan each file and directory in that directory
+                    //foreach (string currentFile in Directory.GetFiles(path))
                     Parallel.ForEach<string>(Directory.GetFiles(path), currentFile =>
                         {
-                            ScanPath(currentFile, fileList);
+                            ScanPath(currentFile, lnkPath, fileList);
                         });
+                    //foreach (string currentDirectory in Directory.GetDirectories(path))
                     Parallel.ForEach<string>(Directory.GetDirectories(path), currentDirectory =>
-                    {
-                        ScanPath(currentDirectory, fileList);
-                    });
+                        {
+                            string dirname = Path.GetFileName(currentDirectory);
+                            ScanPath(currentDirectory, System.IO.Path.Combine(lnkPath, dirname), fileList);
+                        });
                 }
                 else
                 {
@@ -298,14 +353,34 @@ namespace Shortcut_Copy_Tool.ViewModel
                         IWshRuntimeLibrary.WshShell shell = new IWshRuntimeLibrary.WshShell();
                         IWshRuntimeLibrary.IWshShortcut link;
                         link = (IWshRuntimeLibrary.IWshShortcut)shell.CreateShortcut(path);
-                        ScanPath(link.TargetPath, fileList);
+                        
+                        FileAttributes lnkattr = File.GetAttributes(link.TargetPath);
+                        if ((lnkattr & FileAttributes.Directory) == FileAttributes.Directory)
+                        {
+                            ScanPath(link.TargetPath, System.IO.Path.Combine(lnkPath, Path.GetFileNameWithoutExtension(link.TargetPath)), fileList);
+                        }
+                        else
+                        {
+                            FileInfo fi = new FileInfo(link.TargetPath);
+                            FilesForCopy f = new FilesForCopy();
+                            f.phyPath = link.TargetPath;
+                            f.tree = lnkPath.Replace(FolderSource + System.IO.Path.DirectorySeparatorChar, string.Empty);
+                            f.display = Path.Combine(f.tree, Path.GetFileName(f.phyPath));
+                            tmpFiles.Add(f);
+                            Interlocked.Add(ref size, fi.Length);
+                        }
                     }
-                    else //If not add it ot the list
+                    else //if we have a file add it ot the list
                     {
                         FileInfo fi = new FileInfo(path);
-                        tmpFiles.Add(path);
+                        FilesForCopy f = new FilesForCopy();
+                        f.tree = lnkPath.Replace(FolderSource + System.IO.Path.DirectorySeparatorChar, string.Empty);
+                        f.phyPath = path;
+                        f.display = Path.Combine(f.tree, Path.GetFileName(f.phyPath));
+                        tmpFiles.Add(f);
                         Interlocked.Add(ref size, fi.Length);
                     }
+
                 }
             }
             catch { }

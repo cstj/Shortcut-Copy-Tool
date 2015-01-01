@@ -46,5 +46,17 @@ namespace Shortcut_Copy_Tool.Properties {
                 this["CopyDirectory"] = value;
             }
         }
+        
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("True")]
+        public bool IncDirTree {
+            get {
+                return ((bool)(this["IncDirTree"]));
+            }
+            set {
+                this["IncDirTree"] = value;
+            }
+        }
     }
 }
